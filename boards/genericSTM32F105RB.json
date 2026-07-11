@@ -1,0 +1,38 @@
+{
+  "build": {
+    "core": "stm32",
+    "cpu": "cortex-m3",
+    "extra_flags": "-DSTM32F105xC -DSTM32F1",
+    "f_cpu": "72000000L",
+    "mcu": "stm32f105rbt6",
+    "product_line": "STM32F105xC",
+    "variant": "STM32F1xx/F105R(8-B-C)T"
+  },
+  "debug": {
+    "jlink_device": "STM32F105RB",
+    "openocd_target": "stm32f1x",
+    "svd_path": "STM32F105xx.svd"
+  },
+  "frameworks": [
+    "arduino",
+    "stm32cube"
+  ],
+  "name": "Generic STM32F105RBT6 (64k RAM, 128k Flash)",
+  "upload": {
+    "disable_flushing": false,
+    "maximum_ram_size": 65536,
+    "maximum_size": 131072,
+    "protocol": "stlink",
+    "protocols": [
+      "jlink",
+      "cmsis-dap",
+      "stlink",
+      "blackmagic"
+    ],
+    "require_upload_port": true,
+    "use_1200bps_touch": true,
+    "wait_for_upload_port": true
+  },
+  "url": "https://www.st.com/en/microcontrollers-microprocessors/stm32f105rb.html",
+  "vendor": "Generic"
+}
