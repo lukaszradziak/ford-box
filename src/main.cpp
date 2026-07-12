@@ -12,7 +12,7 @@ static uint32_t lastDataMs = 0;
 
 void setup() {
     Serial.begin(115200);
-    Serial.println("ford-box - MM 125000 bps");
+    Serial.println("ford-box - HS/CAN1 500000 bps (OBD 3/11)");
 
     canLinkBegin();
     lastDataMs = millis();

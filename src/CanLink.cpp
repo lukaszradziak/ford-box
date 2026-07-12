@@ -2,17 +2,23 @@
 #include <STM32_CAN.h>
 #include <Arduino.h>
 
-#define STB_MM PB4
-#define MM_BAUD 125000
+#define STB_HS PB3
+#define HS_BAUD 500000
 #define CF_INTERVAL_MS 20
 
-static STM32_CAN canMM(PB5, PB6); // OBD 1/8
+static STM32_CAN canHS(PB8, PB9); // OBD 3/11.
 
 void canLinkBegin() {
-    pinMode(STB_MM, OUTPUT);
-    digitalWrite(STB_MM, LOW);
-    canMM.begin();
-    canMM.setBaudRate(MM_BAUD);
+    __HAL_RCC_AFIO_CLK_ENABLE();
+    __HAL_AFIO_REMAP_SWJ_NOJTAG();
+
+    pinMode(STB_HS, OUTPUT);
+    digitalWrite(STB_HS, LOW);
+
+    canHS.begin();
+
+    __HAL_AFIO_REMAP_CAN1_2();
+    canHS.setBaudRate(HS_BAUD);
 }
 
 void sendIsoTp(uint16_t id, const uint8_t *payload, uint8_t len) {
@@ -25,7 +31,7 @@ void sendIsoTp(uint16_t id, const uint8_t *payload, uint8_t len) {
     uint8_t chunk = (len < 6) ? len : 6;
     for (uint8_t i = 0; i < chunk; i++) msg.buf[2 + i] = payload[i];
     for (uint8_t i = chunk; i < 6; i++) msg.buf[2 + i] = 0x00;
-    canMM.write(msg);
+    canHS.write(msg);
 
     uint8_t sent = chunk;
     uint8_t seq = 1;
@@ -36,7 +42,7 @@ void sendIsoTp(uint16_t id, const uint8_t *payload, uint8_t len) {
         uint8_t n = (remaining < 7) ? remaining : 7;
         for (uint8_t i = 0; i < n; i++) msg.buf[1 + i] = payload[sent + i];
         for (uint8_t i = n; i < 7; i++) msg.buf[1 + i] = 0x00;
-        canMM.write(msg);
+        canHS.write(msg);
         sent += n;
         seq++;
     }

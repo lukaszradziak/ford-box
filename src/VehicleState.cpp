@@ -32,17 +32,6 @@ static void initState() {
     state.reszta[1] = 0;
 }
 
-static uint8_t sweepTpms(uint32_t t, uint32_t phaseOffset) {
-    const uint32_t period = 60;
-    const uint8_t minPsi = 20;
-    const uint8_t maxPsi = 50;
-
-    uint32_t phase = (t + phaseOffset) % period;
-    uint32_t half = period / 2;
-    uint32_t tri = (phase < half) ? phase : (period - phase);
-    return (uint8_t)(minPsi + (tri * (maxPsi - minPsi)) / half);
-}
-
 void updateVehicleState() {
     static bool inited = false;
     if (!inited) {
@@ -51,12 +40,14 @@ void updateVehicleState() {
     }
 
     static uint32_t t = 0;
-    t++;
 
-    state.tpmsFrontLeft = sweepTpms(t, 0);
-    state.tpmsFrontRight = sweepTpms(t, 15);
-    state.tpmsRearRight = sweepTpms(t, 30);
-    state.tpmsRearLeft = sweepTpms(t, 45);
+    const uint8_t tpmsRaw = (uint8_t)(t % 51);
+    state.tpmsFrontLeft = tpmsRaw;
+    state.tpmsFrontRight = tpmsRaw;
+    state.tpmsRearRight = tpmsRaw;
+    state.tpmsRearLeft = tpmsRaw;
+
+    t++;
 
     state.speed = 60 + (t % 40);
     state.speed2 = state.speed;
