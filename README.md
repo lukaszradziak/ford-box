@@ -1,5 +1,8 @@
 # ford-box
 
+This project was developed and tested for a 2017 Ford Mondeo Mk5 using the
+CGEA electrical architecture.
+
 - **HS/CAN1 @ 500000 bps**;
 - MCU: PB8/PB9, STB=PB3;
 - transceiver: U4;
