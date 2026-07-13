@@ -25,6 +25,17 @@ pio run -t upload
 python3 rtt_monitor.py
 ```
 
+Commands are handled immediately, without pressing Enter:
+
+| Command | Action                                       |
+|---------|----------------------------------------------|
+| `h`     | Show help and the current transmission state |
+| `1`     | Toggle periodic `0x2B4` transmission ON/OFF  |
+
+The periodic transmission is enabled by default. Disabling it also pauses the
+mock vehicle-state updates. After enabling it again, the next record is sent
+after `DATA_INTERVAL_MS` (currently 1000 ms).
+
 ## OBD
 
 | Element   | MCU pins           | OBD pins | Speed    |
