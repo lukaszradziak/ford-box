@@ -126,6 +126,11 @@ can keep the USB CDC port open. Open `logger.html` in a supported browser and:
    **Apply filter**;
 5. use **Stop logger** to leave logger mode.
 
+**Pause vehicle data** disables the periodic simulated vehicle-state output;
+the same button changes to **Resume vehicle data** when transmission is off.
+It is disabled while the CAN logger is active because logger mode already
+pauses that transmission automatically.
+
 The filter accepts standard 11-bit hexadecimal CAN IDs from `000` to `7FF`.
 Select **All IDs** to clear an existing filter. The text area shows the complete
 USB output, including firmware status messages and received CAN frames. **Clear

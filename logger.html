@@ -158,6 +158,7 @@
     <button id="connect">Connect USB</button>
     <button id="disconnect" disabled>Disconnect</button>
     <button id="help" disabled>Device help</button>
+    <button id="vehicleData" disabled>Pause vehicle data</button>
     <span class="grow"></span>
     <button id="clear">Clear output</button>
   </div>
@@ -218,6 +219,7 @@
       connect: document.querySelector('#connect'),
       disconnect: document.querySelector('#disconnect'),
       help: document.querySelector('#help'),
+      vehicleData: document.querySelector('#vehicleData'),
       clear: document.querySelector('#clear'),
       status: document.querySelector('#status'),
       bus: document.querySelector('#bus'),
@@ -238,10 +240,47 @@
     let reader = null;
     let writer = null;
     let reading = false;
+    let vehicleDataEnabled = null;
+    let loggerActive = false;
+    let deviceStateBuffer = '';
+
+    function updateControls() {
+      const connected = Boolean(port && writer);
+      ui.vehicleData.disabled = !connected || loggerActive;
+      ui.vehicleData.textContent = vehicleDataEnabled === null
+        ? 'Toggle vehicle data'
+        : vehicleDataEnabled
+          ? 'Pause vehicle data'
+          : 'Resume vehicle data';
+      ui.vehicleData.title = loggerActive
+        ? 'Stop the CAN logger before resuming vehicle data'
+        : '';
+    }
+
+    function updateDeviceState(text) {
+      deviceStateBuffer = (deviceStateBuffer + text).slice(-1000);
+
+      const transmissionOn = deviceStateBuffer.lastIndexOf('0x2B4 transmission: ON');
+      const transmissionOff = deviceStateBuffer.lastIndexOf('0x2B4 transmission: OFF');
+      if (transmissionOn >= 0 || transmissionOff >= 0) {
+        vehicleDataEnabled = transmissionOn > transmissionOff;
+      }
+
+      const loggerOn = Math.max(
+        deviceStateBuffer.lastIndexOf('CAN logger: CAN1'),
+        deviceStateBuffer.lastIndexOf('CAN logger: CAN2'),
+        deviceStateBuffer.lastIndexOf('CAN logger: CAN3')
+      );
+      const loggerOff = deviceStateBuffer.lastIndexOf('CAN logger: OFF');
+      if (loggerOn >= 0 || loggerOff >= 0) loggerActive = loggerOn > loggerOff;
+
+      updateControls();
+    }
 
     function append(text) {
       ui.output.value += text;
       ui.output.scrollTop = ui.output.scrollHeight;
+      updateDeviceState(text);
     }
 
     function message(text) {
@@ -256,6 +295,12 @@
       ui.stop.disabled = !connected;
       ui.applyFilter.disabled = !connected;
       ui.status.textContent = connected ? 'Connected @ 115200 baud' : 'Disconnected';
+      if (!connected) {
+        vehicleDataEnabled = null;
+        loggerActive = false;
+        deviceStateBuffer = '';
+      }
+      updateControls();
     }
 
     function updateFilterFields() {
@@ -319,6 +364,7 @@
       setConnected(true);
       message('USB connected');
       readLoop();
+      await send('h', false);
     }
 
     async function disconnect() {
@@ -356,6 +402,19 @@
       await send(`f.${from.toString(16)}.${to.toString(16)}`);
     }
 
+    async function startLogger() {
+      await send(`l.${ui.bus.value}`);
+      loggerActive = true;
+      vehicleDataEnabled = false;
+      updateControls();
+    }
+
+    async function stopLogger() {
+      await send('l');
+      loggerActive = false;
+      updateControls();
+    }
+
     async function action(task) {
       try {
         await task();
@@ -367,9 +426,9 @@
     ui.connect.addEventListener('click', () => action(connect));
     ui.disconnect.addEventListener('click', () => action(disconnect));
     ui.help.addEventListener('click', () => action(() => send('h', false)));
-    ui.start.addEventListener('click', () =>
-      action(() => send(`l.${ui.bus.value}`)));
-    ui.stop.addEventListener('click', () => action(() => send('l')));
+    ui.vehicleData.addEventListener('click', () => action(() => send('1', false)));
+    ui.start.addEventListener('click', () => action(startLogger));
+    ui.stop.addEventListener('click', () => action(stopLogger));
     ui.applyFilter.addEventListener('click', () => action(applyFilter));
     ui.clear.addEventListener('click', () => { ui.output.value = ''; });
     ui.filterMode.addEventListener('change', updateFilterFields);
