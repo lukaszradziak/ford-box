@@ -1,0 +1,11 @@
+address	name	confidence	notes
+0x1FFFB000	system_memory_base	high	AN2606 and live ROM dump
+0x1FFFE9C1	reset_vector_v22	high	value stored at 0x1FFFB004
+0x1FFFE930	rom_runtime_init	high	called by reset startup; returns
+0x1FFFE5F4	transport_dispatcher	high	dispatches return values 1/2/3
+0x1FFFE668	transport_detect	high	return value 3 selects USB branch
+0x1FFFE618	usb_branch_after_detect	high	calls 0x1FFFC9AA
+0x1FFFC9AA	usb_hse_dfu_blocking	high	live PC observed in 0x1FFFC9AA..0x1FFFCA48
+0x1FFFCA80	usb_init_helper	medium	called within USB path
+0x1FFFE9D1	otg_fs_irq_entry	high	vector table entry for OTG FS IRQ
+0x1FFFBBA0	system_reset_helper	high	writes AIRCR SYSRESETREQ

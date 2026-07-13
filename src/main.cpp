@@ -5,6 +5,7 @@
 #include "VehicleState.h"
 #include "Payload.h"
 #include "CanLink.h"
+#include "DfuBootloader.h"
 
 #define CAN_ID_DATA      0x2B4
 #define DATA_INTERVAL_MS 1000
@@ -17,8 +18,14 @@ static void printHelp() {
     Serial.println("Commands (no Enter required):");
     Serial.println("  h - show this help");
     Serial.println("  1 - toggle 0x2B4 transmission ON/OFF");
+    Serial.println("  u - reboot into USB DFU firmware-update mode");
     Serial.print("0x2B4 transmission: ");
     Serial.println(sendingEnabled ? "ON" : "OFF");
+    Serial.print("Factory ROM bootloader: v");
+    Serial.print(dfuBootloaderVersion());
+    Serial.print(" (vector 0x");
+    Serial.print(dfuBootloaderResetVector(), HEX);
+    Serial.println(")");
 }
 
 static void pollConsole() {
@@ -33,6 +40,13 @@ static void pollConsole() {
             Serial.println(sendingEnabled
                                ? "0x2B4 transmission: ON"
                                : "0x2B4 transmission: OFF");
+        } else if (command == 'u' || command == 'U') {
+            Serial.println("Entering USB DFU bootloader...");
+            Serial.flush();
+            delay(50);
+            Serial.end();
+            delay(1000);
+            dfuRequestBootloader();
         } else if (command != '\r' && command != '\n') {
             Serial.print("Unknown command: ");
             Serial.println(command);

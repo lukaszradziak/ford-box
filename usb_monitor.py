@@ -98,7 +98,10 @@ def main():
                         try:
                             device = serial.Serial(port, baud, timeout=0)
                             sys.stdout.write(f"\r\nConnected: {port} @ {baud}\r\n")
-                            sys.stdout.write("Commands: h=help, 1=toggle transmission, Ctrl+C=quit\r\n")
+                            sys.stdout.write(
+                                "Commands: h=help, 1=toggle transmission, "
+                                "u=USB DFU, Ctrl+C=quit\r\n"
+                            )
                             sys.stdout.flush()
                         except (OSError, serial.SerialException):
                             device = None

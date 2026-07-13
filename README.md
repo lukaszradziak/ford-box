@@ -13,6 +13,24 @@ CGEA electrical architecture.
 - red UCDS from aliexpress
 - st-link v2
 
+## shortcuts
+
+```bash
+pio run -t upload
+```
+
+```bash
+python3 usb_upload.py
+```
+
+```bash
+python3 usb_monitor.py
+```
+
+```bash
+python3 usb_upload.py && python3 usb_monitor.py
+```
+
 ## build and upload (ST-Link)
 
 Install PlatformIO, connect ST-Link and flash the firmware:
@@ -55,10 +73,49 @@ Commands are handled immediately, without pressing Enter:
 |---------|----------------------------------------------|
 | `h`     | Show help and the current transmission state |
 | `1`     | Toggle periodic `0x2B4` transmission ON/OFF  |
+| `u`     | Reboot into the factory USB DFU bootloader   |
 
 The periodic transmission is enabled by default. Disabling it also pauses the
 mock vehicle-state updates. After enabling it again, the next record is sent
 after `DATA_INTERVAL_MS` (currently 1000 ms).
+
+## Firmware update over USB
+
+The first firmware installation still requires ST-Link. Later versions can be
+built and installed through the same USB connector used by the serial monitor.
+The updater uses the factory USB DFU bootloader built into STM32F105.
+This board has factory ROM bootloader v2.2. Because `BOOT0` is permanently tied
+low and VBUS is already present when the application requests an update, the
+firmware uses a delayed USB D+ reconnect (TIM2 + DMA) while entering the ROM.
+DFU enumeration normally takes about 13 seconds on the tested board.
+
+Install `dfu-util` on macOS:
+
+```bash
+brew install dfu-util
+```
+
+Close `usb_monitor.py`, leave the board connected over USB and run:
+
+```bash
+python3 usb_upload.py
+```
+
+The updater prints DFU/CDC state every 0.5 seconds and writes a detailed log to
+`logs/usb_upload_<date>_<time>.log`. On a timeout, the log also contains raw
+`dfu-util -l`, `ioreg` and `system_profiler` USB diagnostics.
+
+The script performs the complete update:
+
+1. builds the current PlatformIO project;
+2. sends the `u` command through USB CDC;
+3. waits for the STM32 DFU device (`0483:df11`);
+4. writes the new firmware at `0x08000000`;
+5. waits for the application USB serial port to return.
+
+If the application is already in DFU mode, the updater detects it and skips
+the CDC command. ST-Link remains the recovery method if an update is
+interrupted or an invalid firmware image cannot start.
 
 ## OBD
 
