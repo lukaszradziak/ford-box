@@ -101,7 +101,8 @@ def main():
                             sys.stdout.write(f"\r\nConnected: {port} @ {baud}\r\n")
                             sys.stdout.write(
                                 "Commands: h=help, 1=toggle transmission, "
-                                "l...=CAN logger, f...=filter, u=USB DFU, "
+                                "l...=CAN logger, f...=filter, q...=send frame, "
+                                "u=USB DFU, "
                                 "Ctrl+C=quit\r\n"
                             )
                             sys.stdout.flush()

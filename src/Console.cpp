@@ -3,12 +3,13 @@
 #include "DfuBootloader.h"
 #include "SerialConfig.h"
 #include <Arduino.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 static bool sendingEnabled = true;
 static bool transmissionRestartRequested = false;
-static char lineCommand[20];
+static char lineCommand[40];
 static uint8_t lineCommandLength = 0;
 static bool readingLineCommand = false;
 
@@ -50,6 +51,8 @@ static void printHelp() {
     Serial.println("  f.<id> - filter one standard hex CAN ID");
     Serial.println("  f.<lo>.<hi> - filter inclusive hex ID range");
     Serial.println("  f - clear filter (accept all IDs)");
+    Serial.println("  q.<id>.<data> - send standard CAN frame, e.g.");
+    Serial.println("    q.7e0.0322f40b00000000");
     Serial.print("0x2B4 transmission: ");
     Serial.println(sendingEnabled ? "ON" : "OFF");
     printLoggerState();
@@ -134,6 +137,63 @@ static void handleFilterCommand(const char *line) {
     printLoggerFilter();
 }
 
+static int8_t hexNibble(char value) {
+    if (value >= '0' && value <= '9') return (int8_t)(value - '0');
+    if (value >= 'a' && value <= 'f') return (int8_t)(value - 'a' + 10);
+    return -1;
+}
+
+static void handleQueryCommand(const char *line) {
+    if (canLoggerActiveBus() == CanLoggerBus::NONE) {
+        Serial.println("ERROR: start l.can1, l.can2 or l.can3 first");
+        return;
+    }
+
+    if (strncmp(line, "q.", 2) != 0) {
+        Serial.println("ERROR: use q.<id>.<data>");
+        return;
+    }
+
+    char *idEnd = nullptr;
+    const unsigned long id = strtoul(line + 2, &idEnd, 16);
+    if (idEnd == line + 2 || *idEnd != '.' || id > 0x7FF) {
+        Serial.println("ERROR: frame ID must be hex 000-7FF");
+        return;
+    }
+
+    const char *hex = idEnd + 1;
+    const size_t hexLength = strlen(hex);
+    if (hexLength < 2 || hexLength > 16 || (hexLength & 1U) != 0) {
+        Serial.println("ERROR: DATA must contain 1-8 complete hex bytes");
+        return;
+    }
+
+    uint8_t data[8];
+    const uint8_t length = (uint8_t)(hexLength / 2);
+    for (uint8_t i = 0; i < length; ++i) {
+        const int8_t high = hexNibble(hex[i * 2]);
+        const int8_t low = hexNibble(hex[i * 2 + 1]);
+        if (high < 0 || low < 0) {
+            Serial.println("ERROR: DATA must contain hexadecimal digits only");
+            return;
+        }
+        data[i] = (uint8_t)((high << 4) | low);
+    }
+
+    const bool queued = canLoggerWriteFrame((uint16_t)id, data, length);
+    char status[80];
+    size_t used = (size_t)snprintf(
+        status, sizeof(status), "TX %s %03lX",
+        canLoggerBusName(canLoggerActiveBus()), id);
+    for (uint8_t i = 0; i < length && used < sizeof(status); ++i) {
+        used += (size_t)snprintf(status + used, sizeof(status) - used,
+                                 " %02X", data[i]);
+    }
+    snprintf(status + used, sizeof(status) - used,
+             ": %s", queued ? "queued" : "failed");
+    Serial.println(status);
+}
+
 static void handleLineCommand() {
     lineCommand[lineCommandLength] = '\0';
 
@@ -148,6 +208,8 @@ static void handleLineCommand() {
         handleLoggerCommand(lineCommand);
     } else if (lineCommand[0] == 'f') {
         handleFilterCommand(lineCommand);
+    } else if (lineCommand[0] == 'q') {
+        handleQueryCommand(lineCommand);
     }
 }
 
@@ -215,7 +277,8 @@ void consolePoll() {
         } else if (command == '1') {
             toggleTransmission();
         } else if (command == 'l' || command == 'L' ||
-                   command == 'f' || command == 'F') {
+                   command == 'f' || command == 'F' ||
+                   command == 'q' || command == 'Q') {
             beginLineCommand(command);
         } else if (command == 'u' || command == 'U') {
             enterDfu();

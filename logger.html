@@ -98,7 +98,7 @@
       box-shadow: 0 0 0 3px var(--focus);
     }
 
-    #connect, #start, #applyFilter {
+    #connect, #start, #applyFilter, #sendFrame {
       border-color: var(--primary);
       color: #fff;
       background: var(--primary);
@@ -106,9 +106,14 @@
 
     #connect:hover:not(:disabled),
     #start:hover:not(:disabled),
-    #applyFilter:hover:not(:disabled) {
+    #applyFilter:hover:not(:disabled),
+    #sendFrame:hover:not(:disabled) {
       background: var(--primary-hover);
     }
+
+    .wide { min-width: min(100%, 360px); }
+    #frameData { width: 230px; font-family: ui-monospace, monospace; }
+    #frameCommand { color: var(--muted); font-family: ui-monospace, monospace; }
 
     #status {
       width: fit-content;
@@ -178,6 +183,15 @@
     <button id="stop" disabled>Stop logger</button>
   </div>
 
+  <p class="hint">
+    <strong>CAN1</strong> — OBD 3/11, 500 kbps — radio/SYNC communication and
+    the 0x2B4 vehicle-data message.<br>
+    <strong>CAN2</strong> — OBD 6/14, 500 kbps — main engine/PCM diagnostics
+    and UDS requests such as 7E0/7E8.<br>
+    <strong>CAN3</strong> — OBD 1/8, 125 kbps — alternate network for other or
+    fallback vehicle modules; its exact role depends on vehicle configuration.
+  </p>
+
   <div class="panel">
     <label>
       Filter
@@ -204,6 +218,57 @@
     </label>
 
     <button id="applyFilter" disabled>Apply filter</button>
+  </div>
+
+  <div class="panel">
+    <label class="wide">
+      Test frame / predefined request
+      <select id="framePreset">
+        <option value="">Custom frame</option>
+        <optgroup label="PCM telemetry — normally CAN2 / response 7E8">
+          <option value="7e0:0322f43300000000">Barometric pressure — DID F433</option>
+          <option value="7e0:0322f40b00000000">Intake/boost absolute pressure — DID F40B</option>
+          <option value="7e0:0322f43e00000000">Catalyst/exhaust temperature — DID F43E</option>
+          <option value="7e0:0322f43c00000000">Catalyst temperature fallback — DID F43C</option>
+          <option value="7e0:0322f47800000000">Catalyst temperature multi-frame — DID F478</option>
+          <option value="7e0:0322f40500000000">Coolant temperature — DID F405</option>
+          <option value="7e0:0322f45c00000000">Engine oil temperature — DID F45C</option>
+          <option value="7e0:032205fc00000000">Cylinder-head temperature — DID 05FC</option>
+          <option value="7e0:0322046100000000">Intake-air temperature — DID 0461</option>
+          <option value="7e0:0322f40f00000000">Intake-air temperature fallback — DID F40F</option>
+          <option value="7e0:0322f44200000000">Control-module voltage — DID F442</option>
+          <option value="7e0:0322f41f00000000">Engine runtime — DID F41F</option>
+          <option value="7e0:0322057900000000">Engine load — DID 0579</option>
+          <option value="7e0:03221e1c00000000">Transmission-fluid temperature — DID 1E1C</option>
+          <option value="7e0:0322054b00000000">Oil-life value — DID 054B</option>
+          <option value="7e0:0322f47a00000000">Fuel differential pressure — DID F47A</option>
+          <option value="7e0:0322061400000000">LAT value, multi-frame — DID 0614</option>
+          <option value="7e0:3000000000000000">ISO-TP Flow Control for response 7E8</option>
+        </optgroup>
+        <optgroup label="Other modules">
+          <option value="726:0322281300000000">TPMS front-left — DID 2813, response 72E</option>
+          <option value="726:0322281400000000">TPMS front-right — DID 2814, response 72E</option>
+          <option value="726:0322281500000000">TPMS rear-right — DID 2815, response 72E</option>
+          <option value="726:0322281600000000">TPMS rear-left — DID 2816, response 72E</option>
+          <option value="726:0322402800000000">Battery state — DID 4028, response 72E</option>
+          <option value="7e4:0322484800000000">Torque-like value — DID 4848, response 7EC</option>
+          <option value="720:0322404c00000000">Distance counter — DID 404C, normally CAN1, response 728</option>
+        </optgroup>
+      </select>
+    </label>
+
+    <label>
+      CAN ID (hex)
+      <input id="frameId" value="7E0" maxlength="5" spellcheck="false">
+    </label>
+
+    <label>
+      DATA HEX (1–8 bytes)
+      <input id="frameData" value="0322F40B00000000" maxlength="32" spellcheck="false">
+    </label>
+
+    <button id="sendFrame" disabled>Send frame</button>
+    <span id="frameCommand">q.7e0.0322f40b00000000</span>
   </div>
 
   <p class="hint">
@@ -233,6 +298,11 @@
       toGroup: document.querySelector('#toGroup'),
       toId: document.querySelector('#toId'),
       applyFilter: document.querySelector('#applyFilter'),
+      framePreset: document.querySelector('#framePreset'),
+      frameId: document.querySelector('#frameId'),
+      frameData: document.querySelector('#frameData'),
+      sendFrame: document.querySelector('#sendFrame'),
+      frameCommand: document.querySelector('#frameCommand'),
       output: document.querySelector('#output')
     };
 
@@ -247,6 +317,7 @@
     function updateControls() {
       const connected = Boolean(port && writer);
       ui.vehicleData.disabled = !connected || loggerActive;
+      ui.sendFrame.disabled = !connected || !loggerActive;
       ui.vehicleData.textContent = vehicleDataEnabled === null
         ? 'Toggle vehicle data'
         : vehicleDataEnabled
@@ -320,6 +391,35 @@
         throw new Error(`${name} must be between 000 and 7FF`);
       }
       return value;
+    }
+
+    function parseFrameData(input) {
+      const text = input.trim().replace(/[\s:.-]/g, '');
+      if (!/^[0-9a-f]+$/i.test(text)) {
+        throw new Error('DATA must contain hexadecimal bytes only');
+      }
+      if (text.length < 2 || text.length > 16 || text.length % 2 !== 0) {
+        throw new Error('DATA must contain 1-8 complete bytes');
+      }
+      return text.toLowerCase();
+    }
+
+    function updateFrameCommand() {
+      try {
+        const id = parseCanId(ui.frameId.value, 'Frame ID').toString(16);
+        const data = parseFrameData(ui.frameData.value);
+        ui.frameCommand.textContent = `q.${id}.${data}`;
+      } catch (_) {
+        ui.frameCommand.textContent = 'Invalid frame';
+      }
+    }
+
+    function selectFramePreset() {
+      if (!ui.framePreset.value) return;
+      const [id, data] = ui.framePreset.value.split(':');
+      ui.frameId.value = id.toUpperCase();
+      ui.frameData.value = data.toUpperCase();
+      updateFrameCommand();
     }
 
     async function send(command, enter = true) {
@@ -415,6 +515,13 @@
       updateControls();
     }
 
+    async function sendTestFrame() {
+      if (!loggerActive) throw new Error('Start a CAN logger first');
+      const id = parseCanId(ui.frameId.value, 'Frame ID');
+      const data = parseFrameData(ui.frameData.value);
+      await send(`q.${id.toString(16)}.${data}`);
+    }
+
     async function action(task) {
       try {
         await task();
@@ -430,14 +537,19 @@
     ui.start.addEventListener('click', () => action(startLogger));
     ui.stop.addEventListener('click', () => action(stopLogger));
     ui.applyFilter.addEventListener('click', () => action(applyFilter));
+    ui.sendFrame.addEventListener('click', () => action(sendTestFrame));
     ui.clear.addEventListener('click', () => { ui.output.value = ''; });
     ui.filterMode.addEventListener('change', updateFilterFields);
+    ui.framePreset.addEventListener('change', selectFramePreset);
+    ui.frameId.addEventListener('input', updateFrameCommand);
+    ui.frameData.addEventListener('input', updateFrameCommand);
 
     navigator.serial?.addEventListener('disconnect', event => {
       if (event.port === port || event.target === port) action(disconnect);
     });
 
     updateFilterFields();
+    updateFrameCommand();
     setConnected(false);
   </script>
 </body>

@@ -77,21 +77,28 @@ Commands are handled immediately, without pressing Enter:
 
 CAN logger and filter commands are completed with Enter:
 
-| Command       | Action                                                 |
-|---------------|--------------------------------------------------------|
-| `l.can1`      | Log CAN1, OBD 3/11 at 500 kbps                         |
-| `l.can2`      | Log CAN2, OBD 6/14 at 500 kbps                         |
-| `l.can3`      | Log CAN3, OBD 1/8 at 125 kbps                          |
-| `l` / `l.off` | Stop logging                                           |
-| `f.2b4`       | Accept only standard CAN ID `0x2B4`                    |
-| `f.200.2ff`   | Accept the inclusive standard-ID range `0x200-0x2FF`   |
-| `f`           | Clear the filter and accept all IDs                    |
+| Command                   | Action                                               |
+|---------------------------|------------------------------------------------------|
+| `l.can1`                  | Log CAN1, OBD 3/11 at 500 kbps                       |
+| `l.can2`                  | Log CAN2, OBD 6/14 at 500 kbps                       |
+| `l.can3`                  | Log CAN3, OBD 1/8 at 125 kbps                        |
+| `l` / `l.off`             | Stop logging                                         |
+| `f.2b4`                   | Accept only standard CAN ID `0x2B4`                  |
+| `f.200.2ff`               | Accept the inclusive standard-ID range `0x200-0x2FF` |
+| `f`                       | Clear the filter and accept all IDs                  |
+| `q.7e0.0322f40b00000000`  | Send standard ID `0x7E0` with eight data bytes       |
 
 Only one logger bus is selected at a time. CAN2 and CAN3 are two pin mappings
 of the STM32F105's second bxCAN controller and cannot operate simultaneously.
 The filter may be configured before or after starting a logger and is retained
 when switching buses or stopping the logger. It uses the bxCAN hardware filter
 banks, with an exact software check when a range cannot fit those banks.
+
+The generic test-frame syntax is `q.<standard-id>.<data-hex>`. It accepts a
+standard 11-bit CAN ID and from one to eight complete data bytes. A logger must
+be active because its selected CAN bus is also used for transmission. The
+command reports `queued` when the frame enters a CAN transmit mailbox; this
+does not by itself guarantee that another node acknowledged it.
 
 Starting a logger automatically disables periodic `0x2B4` transmission. The
 `1` command cannot enable transmission while a logger is active. Stopping the
@@ -124,12 +131,28 @@ can keep the USB CDC port open. Open `logger.html` in a supported browser and:
 3. click **Start logger**;
 4. optionally select an exact ID or an inclusive ID range and click
    **Apply filter**;
-5. use **Stop logger** to leave logger mode.
+5. optionally select a predefined test request, edit its CAN ID or data and
+   click **Send frame**;
+6. use **Stop logger** to leave logger mode.
 
 **Pause vehicle data** disables the periodic simulated vehicle-state output;
 the same button changes to **Resume vehicle data** when transmission is off.
 It is disabled while the CAN logger is active because logger mode already
 pauses that transmission automatically.
+
+The predefined test requests come from the reverse engineering notes for
+`ori.bin`. They include boost pressure, catalyst/exhaust temperature, engine
+temperatures, voltage, load, TPMS and several other UDS DIDs. Presets only fill
+the editable CAN ID and DATA HEX fields; arbitrary standard frames can be
+entered manually. Responses are still controlled by the selected logger
+filter, so make sure it includes the expected response ID (for example `0x7E8`
+for requests sent to `0x7E0`).
+
+Boost requires both the `F433` barometric-pressure request and the `F40B`
+absolute-intake-pressure request. Multi-frame responses require sending the
+provided ISO-TP Flow Control frame after their First Frame. Custom frames are
+transmitted exactly as entered and may affect vehicle modules; use them only on
+a stationary vehicle or bench setup when their meaning is known.
 
 The filter accepts standard 11-bit hexadecimal CAN IDs from `000` to `7FF`.
 Select **All IDs** to clear an existing filter. The text area shows the complete

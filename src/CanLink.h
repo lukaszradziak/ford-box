@@ -12,6 +12,7 @@ CanLoggerBus canLoggerActiveBus();
 const char *canLoggerBusName(CanLoggerBus bus);
 uint32_t canLoggerBaudRate(CanLoggerBus bus);
 void canLoggerPoll();
+bool canLoggerWriteFrame(uint16_t id, const uint8_t *data, uint8_t len);
 
 void canLoggerSetFilter(uint16_t idLo, uint16_t idHi);
 void canLoggerClearFilter();

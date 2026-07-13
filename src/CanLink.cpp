@@ -255,6 +255,17 @@ void canLoggerPoll() {
     }
 }
 
+bool canLoggerWriteFrame(uint16_t id, const uint8_t *data, uint8_t len) {
+    STM32_CAN *can = loggerInstance(loggerBus);
+    if (!can || !data || len == 0 || len > 8 || id > 0x7FF) return false;
+
+    CAN_message_t msg{};
+    msg.id = id;
+    msg.len = len;
+    for (uint8_t i = 0; i < len; ++i) msg.buf[i] = data[i];
+    return can->write(msg);
+}
+
 void sendIsoTp(uint16_t id, const uint8_t *payload, uint8_t len) {
     if (!can1Started || loggerBus != CanLoggerBus::NONE) return;
 
