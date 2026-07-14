@@ -37,7 +37,7 @@
 
     body {
       box-sizing: border-box;
-      max-width: 1000px;
+      max-width: 1440px;
       min-height: 100vh;
       margin: 0 auto;
       padding: 24px;
@@ -49,6 +49,46 @@
       margin: 0 0 22px;
       font-size: clamp(26px, 4vw, 36px);
       letter-spacing: -0.03em;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 20px;
+      align-items: start;
+    }
+
+    .controls, .logs { min-width: 0; }
+
+    .logs {
+      position: sticky;
+      top: 24px;
+    }
+
+    .log-header {
+      position: absolute;
+      z-index: 1;
+      top: 1px;
+      right: 1px;
+      left: 1px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      min-height: 38px;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+      border-radius: 4px 4px 0 0;
+      background: var(--surface-muted);
+      pointer-events: none;
+    }
+
+    .log-header button {
+      pointer-events: auto;
     }
 
     .panel {
@@ -130,12 +170,15 @@
     #output {
       box-sizing: border-box;
       width: 100%;
-      height: 55vh;
-      min-height: 300px;
-      padding: 12px;
+      height: calc(100vh - 120px);
+      min-height: 500px;
+      padding: 66px 12px 12px;
       border: 1px solid var(--border);
       border-radius: 5px;
       resize: vertical;
+      overflow-y: scroll;
+      scrollbar-gutter: stable;
+      scrollbar-color: var(--muted) var(--surface-muted);
       color: var(--text);
       background: var(--surface);
       box-shadow: var(--shadow);
@@ -143,9 +186,23 @@
       white-space: pre;
     }
 
+    #output::-webkit-scrollbar { width: 12px; }
+    #output::-webkit-scrollbar-track { background: var(--surface-muted); }
+    #output::-webkit-scrollbar-thumb {
+      border: 3px solid var(--surface-muted);
+      border-radius: 6px;
+      background: var(--muted);
+    }
+
     .grow { flex: 1; }
     .hidden { display: none; }
     .hint { color: var(--muted); font-size: 13px; }
+
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+      .logs { position: static; }
+      #output { height: 55vh; min-height: 300px; }
+    }
 
     @media (max-width: 620px) {
       body { padding: 16px; }
@@ -159,13 +216,14 @@
 <body>
   <h1>CAN Logger</h1>
 
+  <div class="layout">
+  <div class="controls">
+
   <div class="panel">
     <button id="connect">Connect USB</button>
     <button id="disconnect" disabled>Disconnect</button>
     <button id="help" disabled>Device help</button>
     <button id="vehicleData" disabled>Pause vehicle data</button>
-    <span class="grow"></span>
-    <button id="clear">Clear output</button>
   </div>
 
   <p id="status">Disconnected</p>
@@ -219,6 +277,17 @@
 
     <button id="applyFilter" disabled>Apply filter</button>
   </div>
+
+  <p class="hint">
+    Before sending a test request, start the CAN bus that contains its target
+    module and set a filter that includes the expected response ID.<br>
+    <strong>Engine/PCM parameters</strong> — start CAN2 and use exact filter
+    7E8; use range 7E8–7EC when checking several diagnostic modules.<br>
+    <strong>TPMS and battery presets</strong> — start CAN2 and filter 72E.<br>
+    <strong>Distance DID 404C</strong> — start CAN1 and filter 728.<br>
+    Select <strong>All IDs</strong> if the response address is unknown, then
+    narrow the filter after identifying it.
+  </p>
 
   <div class="panel">
     <label class="wide">
@@ -275,9 +344,17 @@
     Web Serial works in Chromium-based browsers such as Chrome and Edge.
     Select the board's USB CDC port when the browser asks for permission.
   </p>
+  </div>
 
-  <textarea id="output" readonly spellcheck="false"
-            aria-label="CAN logger output"></textarea>
+  <section class="logs">
+    <div class="log-header">
+      <h2>CAN output</h2>
+      <button id="clear">Clear output</button>
+    </div>
+    <textarea id="output" readonly spellcheck="false"
+              aria-label="CAN logger output"></textarea>
+  </section>
+  </div>
 
   <script>
     const ui = {
